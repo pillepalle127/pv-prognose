@@ -1,0 +1,96 @@
+#!/bin/sh
+# Fester Befehl für den Export-Schlüssel (authorized_keys: restrict,command="/home/kodibox/bin/pv-export" ...).
+# Gibt PV-Prognose- und WP-Budget-Datenpunkte, ihre Logzeilen und History-Dateien (PV, AC-Verbrauch, WP-Budget, DTUoB_WP, SOC) aus.
+# Schreibt nichts.
+# Vom Aufrufer erlaubt: nichts (Datenpunkte und Log) oder "hist JJJJMMTT" (History-Dateien dieses Tages).
+set -u
+
+HIST_DIR=/home/iobroker-history
+VENUS_ID='<venus-id>'            # Portal-ID von Venus OS eintragen
+DTU_WP_SERIAL='<seriennummer>'   # Seriennummer des Wechselrichters an DTUoB_WP eintragen
+
+export_states() {
+    for id in \
+        0_userdata.0.pvForecastIcon.compare.days_json \
+        0_userdata.0.pvForecastIcon.learn.days_json \
+        0_userdata.0.pvForecastIcon.learn.factors_json \
+        0_userdata.0.pvForecastIcon.learn.days_used \
+        0_userdata.0.pvForecastIcon.snap.archive_json \
+        0_userdata.0.pvForecastIcon.backtest.result_json \
+        0_userdata.0.pvForecastIcon.backtest.lastRun \
+        0_userdata.0.pvForecastIcon.forecast.lastUpdate \
+        0_userdata.0.pvForecastIcon.forecast.error \
+        0_userdata.0.pvForecastVrm.snap.archive_json \
+        0_userdata.0.pvForecastVrm.forecast.lastUpdate \
+        0_userdata.0.pvForecastVrm.forecast.error \
+        0_userdata.0.wpBudget.naechte_json \
+        0_userdata.0.wpBudget.nacht_profil_json \
+        0_userdata.0.wpBudget.phase \
+        0_userdata.0.wpBudget.fehler
+    do
+        echo "### state $id"
+        iobroker state get "$id" 2>&1
+    done
+
+    echo "### log"
+    zgrep -h -e 'PV-ICON' -e 'PV-Prognose' -e 'PV gesamt' -e 'Pv_forecast' -e 'WP-Budget' /opt/iobroker/log/iobroker.20*.log* 2>/dev/null
+}
+
+# $1 = JJJJMMTT, vom Aufrufer schon auf acht Ziffern geprüft
+export_hist() {
+    for f in \
+        0_userdata.0.pvForecastIcon.forecast.pv_today_kWh \
+        0_userdata.0.pvForecastIcon.forecast.pv_remaining_today_kWh \
+        0_userdata.0.pvForecastIcon.forecast.pv_next1h_kWh \
+        0_userdata.0.pvForecastIcon.forecast.pv_next3h_kWh \
+        0_userdata.0.pvForecastIcon.forecast.pv_tomorrow_kWh \
+        0_userdata.0.pvForecastVrm.forecast.pv_today_kWh \
+        0_userdata.0.pvForecastVrm.forecast.pv_remaining_today_kWh \
+        0_userdata.0.pvForecastVrm.forecast.pv_next1h_kWh \
+        0_userdata.0.pvForecastVrm.forecast.pv_next3h_kWh \
+        0_userdata.0.pvForecastVrm.forecast.pv_tomorrow_kWh \
+        0_userdata.0.pvForecastVrm.actual.today_kWh \
+        DC_MPPT_288_P \
+        DC_MPPT_291_P \
+        alias.0.VenusOS.DC_MPPT_292_P \
+        alias.0.VenusOS.DC_MPPT_293_P \
+        alias.0.VenusOS.DC_MPPT_294_P \
+        alias.0.VenusOS.DC_MPPT_296_P \
+        alias.0.GroWatt_WR.OutputPower \
+        PV_Garage_P \
+        alias.0.VenusOS.AC_Consumption_P \
+        0_userdata.0.wpBudget.prognose_kWh \
+        0_userdata.0.wpBudget.budget_kWh \
+        0_userdata.0.wpBudget.reserve_kWh \
+        0_userdata.0.wpBudget.batterie_kWh \
+        0_userdata.0.wpBudget.rest_kWh \
+        0_userdata.0.wpBudget.abgegeben_kWh \
+        0_userdata.0.wpBudget.stuetzung \
+        mqtt.0.DTUoB_WP.powerlimiter.status.mode \
+        mqtt.0.DTUoB_WP.$DTU_WP_SERIAL.0.yieldtotal \
+        mqtt.0.DTUoB_WP.$DTU_WP_SERIAL.0.powerdc \
+        mqtt.0.DTUoB_WP.powermeter.powertotal \
+        mqtt.0.DTUoB_WP.powermeter.import \
+        mqtt.1.N.$VENUS_ID.battery.291.Soc
+    do
+        file="$HIST_DIR/$1/history.$f.json"
+        if [ -r "$file" ]; then
+            echo "### hist $f"
+            cat "$file"
+            echo
+        else
+            echo "### missing $f"
+        fi
+    done
+}
+
+case "${SSH_ORIGINAL_COMMAND:-}" in
+    "")
+        export_states ;;
+    "hist "[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9])
+        export_hist "${SSH_ORIGINAL_COMMAND#hist }" ;;
+    *)
+        echo "### error nicht erlaubt"
+        exit 1 ;;
+esac
+echo "### end"
