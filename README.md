@@ -9,9 +9,9 @@ Ich werde mich in den nächsten Tagen für ICON entscheiden und dann die Trigger
 ## Anlage
 
 - DC: sechs Victron-MPPT (288, 291, 292, 293, 294, 296).
-- AC: Growatt-MIC und Hoymiles über OpenDTU (in den Skripten „Growatt“ und „HMS Garage“). Venus OS erfasst beide als PV-Inverter.
+- AC: Growatt-MIC und Hoymiles über [OpenDTU](https://github.com/tbnobody/OpenDTU) (in den Skripten „Growatt“ und „HMS Garage“). Venus OS erfasst beide als PV-Inverter.
 - Deutlich mehr als zwei Modulausrichtungen.
-- DTUoB_WP ist kein PV-Erzeuger. Er speist aus der Batterie die Wärmepumpe und gehört nicht in die PV-Summe. Hoymiles, ca. 2 kW. Er stützt die Wärmepumpe nach Bedarf und regelt das selbst; von außen wird die Stützung nur an- oder abgeschaltet.
+- DTUoB_WP ist kein PV-Erzeuger. DTUoB steht für [OpenDTU-OnBattery](https://github.com/hoylabs/OpenDTU-OnBattery). Er speist aus der Batterie die Wärmepumpe und gehört nicht in die PV-Summe. Hoymiles, ca. 2 kW. Er stützt die Wärmepumpe nach Bedarf und regelt das selbst; von außen wird die Stützung nur an- oder abgeschaltet.
 - Die Wärmepumpe braucht ihre Energie vor allem abends (Warmwasser) und nachts (Heizkurve nach Außentemperatur).
 - Batterie ca. 22 kWh, ESS-Abschaltung bei 20 % SOC.
 
@@ -322,7 +322,7 @@ Verbrauch der Wärmepumpe je Tag, Zuwachs `import` + Zuwachs `yieldtotal`: 31.10
 
 - DTUoB ist OpenDTU-OnBattery (WP: Hostname OpenDTU-WP-…, Konfiguration 0.1.30-OnBattery-8, Firmware 2026.07.23). Stützung an/aus = Modus des Dynamic Power Limiter: Topic `DTUoB_WP/powerlimiter/cmd/mode`, 0 = normal (Stützung nach Bedarf), 1 = aus (Wechselrichter abgeschaltet). Status in `mqtt.0.DTUoB_WP.powerlimiter.status.mode`. Abgegebene Energie: `mqtt.0.DTUoB_WP.<seriennummer>.0.yieldtotal` (kWh).
 - Im DPL-Status stehen SOC-Schwellen 77/55 %. Sie sind nicht aktiv, das Skript berücksichtigt sie nicht. Meine erste Fassung hatte sie als aktiv angenommen und tagsüber nicht eingegriffen; das lief am Ziel vorbei, weil die Wärmepumpe tagsüber ohne Grenze ziehen konnte.
-- Befehle ohne retain: Retained Befehle legen OpenDTU-OnBattery lahm (Issue #1629). Das Skript sendet über `sendTo('mqtt.0', 'sendMessage2Client', {…, retain: false})`. Der mqtt-Adapter übernimmt `retain` daraus erst ab Version 5 (Quellcode geprüft: 4.0.7 nicht, 5.2.0 bis 9.0.2 ja). Das Skript prüft die Version beim Start und schaltet sonst nicht.
+- Befehle ohne retain: Retained Befehle legen OpenDTU-OnBattery lahm ([Issue #1629](https://github.com/hoylabs/OpenDTU-OnBattery/issues/1629)). Das Skript sendet über `sendTo('mqtt.0', 'sendMessage2Client', {…, retain: false})`. Der mqtt-Adapter übernimmt `retain` daraus erst ab Version 5 (Quellcode geprüft: 4.0.7 nicht, 5.2.0 bis 9.0.2 ja). Das Skript prüft die Version beim Start und schaltet sonst nicht.
 - Der Modus überlebt keinen Neustart der DTU, danach steht er auf 0. Das Skript prüft ihn jede Minute und setzt ihn höchstens alle 2 min neu.
 - Nachtprofil im Skript (Tage 16.–29.10. im Test): Ø Nachtbedarf 10,7 kWh. Ø Verbrauch 17,5 kWh.
 - Simulation Minute für Minute vom 30.10. 12:00 bis 31.10. 22:00 (Oktober-Profil, SOC in 1-%-Schritten, DPL ohne eigene Schwellen; Wärmepumpe 1,5 kW 18–20 Uhr, 0,6 kW 22–06 Uhr, 0,8 kW 11–13 Uhr, 1,5 kW 15–16 Uhr):
